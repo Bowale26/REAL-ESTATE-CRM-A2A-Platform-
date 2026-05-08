@@ -1,0 +1,216 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // -------------------------------------------------------------------------
+    // GLOBAL HELPERS
+    // -------------------------------------------------------------------------
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isEmailVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'isadewum@gmail.com' && isEmailVerified()
+      );
+    }
+
+    function isTenantMember(tenantId) {
+      // In this app, we check the user profile for the tenantId
+      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tenantId == tenantId;
+    }
+
+    // -------------------------------------------------------------------------
+    // COLLECTIONS
+    // -------------------------------------------------------------------------
+
+    // Users
+    match /users/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) && isValidUser(incoming());
+      allow update: if isOwner(userId) && isValidUser(incoming()) && (
+        incoming().diff(existing()).affectedKeys().hasOnly(['name', 'phone', 'location', 'dateFormat', 'currency', 'updatedAt'])
+      );
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid']) &&
+             data.uid == request.auth.uid &&
+             (data.get('name', '') is string && data.get('name', '').size() <= 100) &&
+             (data.get('tenantId', '') is string && data.get('tenantId', '').size() <= 128);
+    }
+
+    // Listings
+    match /listings/{listingId} {
+      allow list: if isSignedIn(); // Public-ish for agents
+      allow get: if isSignedIn();
+      allow create: if isEmailVerified() && isValidListing(incoming()) && isOwner(incoming().agentId);
+      allow update: if isEmailVerified() && (isAdmin() || (isOwner(existing().agentId) && isOwner(incoming().agentId))) && (
+        incoming().diff(existing()).affectedKeys().hasOnly(['address', 'city', 'state', 'zip', 'price', 'beds', 'baths', 'sqft', 'status', 'description', 'updatedAt']) &&
+        isValidListing(incoming())
+      );
+      allow delete: if isAdmin() || isOwner(existing().agentId);
+    }
+
+    function isValidListing(data) {
+      return data.address is string && data.address.size() <= 200 &&
+             data.city is string && data.city.size() <= 100 &&
+             data.price is string && data.price.size() <= 50 &&
+             data.status in ['Active', 'Pending', 'Sold', 'Withdrawn'] &&
+             data.agentId is string && isValidId(data.agentId);
+    }
+
+    // Leads
+    match /leads/{leadId} {
+      allow list, get: if isEmailVerified() && (isAdmin() || isOwner(resource.data.agentId));
+      allow create: if isEmailVerified() && isValidLead(incoming()) && isOwner(incoming().agentId);
+      allow update: if isEmailVerified() && (isAdmin() || (isOwner(existing().agentId) && isOwner(incoming().agentId))) && (
+        incoming().diff(existing()).affectedKeys().hasOnly(['status', 'chatbotStatus', 'financingStatus', 'probability', 'budget', 'updatedAt']) &&
+        isValidLead(incoming())
+      );
+      allow delete: if isAdmin() || isOwner(existing().agentId);
+    }
+
+    function isValidLead(data) {
+      return data.name is string && data.name.size() <= 100 &&
+             data.status is string && data.status.size() <= 20 &&
+             data.agentId is string && isValidId(data.agentId);
+    }
+
+    // Tasks
+    match /tasks/{taskId} {
+      allow list, get: if isEmailVerified() && (isAdmin() || isOwner(resource.data.userId));
+      allow create: if isEmailVerified() && isValidTask(incoming()) && isOwner(incoming().userId);
+      allow update: if isEmailVerified() && (isAdmin() || (isOwner(existing().userId) && isOwner(incoming().userId))) && (
+        incoming().diff(existing()).affectedKeys().hasOnly(['title', 'status', 'priority', 'dueDate', 'updatedAt']) &&
+        isValidTask(incoming())
+      );
+      allow delete: if isEmailVerified() && (isAdmin() || isOwner(resource.data.userId));
+    }
+
+    function isValidTask(data) {
+      return data.title is string && data.title.size() <= 200 &&
+             data.status in ['Pending', 'Completed'] &&
+             data.userId is string && isValidId(data.userId);
+    }
+
+    // Contacts (Tenant Isolated)
+    match /contacts/{contactId} {
+      allow list, get: if isEmailVerified() && isTenantMember(resource.data.tenantId);
+      allow create: if isEmailVerified() && isValidContact(incoming()) && isTenantMember(incoming().tenantId);
+      allow update: if isEmailVerified() && isTenantMember(existing().tenantId) && isTenantMember(incoming().tenantId) && (
+        isValidContact(incoming()) &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['name', 'email', 'phone', 'status', 'tags', 'updatedAt'])
+      );
+      allow delete: if isEmailVerified() && isTenantMember(resource.data.tenantId);
+    }
+
+    function isValidContact(data) {
+      return data.name is string && data.name.size() <= 100 &&
+             data.tenantId is string && isValidId(data.tenantId);
+    }
+
+    // Channels (Tenant Isolated)
+    match /channels/{channelId} {
+      allow list, get: if isEmailVerified() && isTenantMember(resource.data.tenantId);
+      allow create: if isEmailVerified() && isValidChannel(incoming()) && isTenantMember(incoming().tenantId);
+      allow update: if isEmailVerified() && isTenantMember(existing().tenantId) && isTenantMember(incoming().tenantId) && (
+        isValidChannel(incoming()) &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt'])
+      );
+      allow delete: if isEmailVerified() && isTenantMember(resource.data.tenantId);
+    }
+
+    function isValidChannel(data) {
+      return data.name is string && data.name.size() <= 100 &&
+             data.tenantId is string && isValidId(data.tenantId);
+    }
+
+    // Transactions
+    match /transactions/{transactionId} {
+      allow read: if isEmailVerified() && (isAdmin() || isOwner(resource.data.agentId));
+      allow create: if isEmailVerified() && isValidTransaction(incoming()) && isOwner(incoming().agentId);
+      allow update: if isEmailVerified() && (isAdmin() || isOwner(existing().agentId)) && (
+        isValidTransaction(incoming()) &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['stage', 'documents', 'tasks', 'updatedAt'])
+      );
+      allow delete: if isAdmin();
+    }
+
+    function isValidTransaction(data) {
+      return data.dealName is string && data.dealName.size() <= 100 &&
+             data.agentId is string && isValidId(data.agentId);
+    }
+
+    // Workflows
+    match /workflows/{workflowId} {
+      allow read: if isEmailVerified() && (isAdmin() || isOwner(resource.data.userId));
+      allow create: if isEmailVerified() && isValidWorkflow(incoming()) && isOwner(incoming().userId);
+      allow update: if isEmailVerified() && (isAdmin() || isOwner(existing().userId)) && (
+        isValidWorkflow(incoming()) &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['status', 'nodes', 'updatedAt'])
+      );
+      allow delete: if isEmailVerified() && (isAdmin() || isOwner(resource.data.userId));
+    }
+
+    function isValidWorkflow(data) {
+      return data.name is string && data.name.size() <= 100 &&
+             data.userId is string && isValidId(data.userId);
+    }
+
+    // Deals
+    match /deals/{dealId} {
+      allow read: if isEmailVerified() && (isAdmin() || isOwner(resource.data.agentId));
+      allow create: if isEmailVerified() && isValidDeal(incoming()) && isOwner(incoming().agentId);
+      allow update: if isEmailVerified() && (isAdmin() || isOwner(existing().agentId)) && (
+        isValidDeal(incoming()) &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['stage', 'val', 'updatedAt'])
+      );
+      allow delete: if isAdmin();
+    }
+
+    function isValidDeal(data) {
+      return data.name is string && data.name.size() <= 100 &&
+             data.agentId is string && isValidId(data.agentId);
+    }
+
+    // Emails
+    match /emails/{emailId} {
+      allow read, write: if isEmailVerified() && (isAdmin() || isOwner(resource.data.userId));
+    }
+
+    // Video Projects
+    match /videoProjects/{projectId} {
+      allow read, write: if isEmailVerified() && (isAdmin() || isOwner(resource.data.userId));
+    }
+
+    // CRM Connections
+    match /crmConnections/{connectionId} {
+      allow read, write: if isEmailVerified() && isAdmin();
+    }
+  }
+}

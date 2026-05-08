@@ -1,0 +1,221 @@
+{
+  "entities": {
+    "Listing": {
+      "title": "Listing",
+      "description": "Real estate property listing",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "address": { "type": "string" },
+        "city": { "type": "string" },
+        "state": { "type": "string" },
+        "zip": { "type": "string" },
+        "price": { "type": "string" },
+        "beds": { "type": "number" },
+        "baths": { "type": "number" },
+        "sqft": { "type": "number" },
+        "mlsNumber": { "type": "string" },
+        "status": { "type": "string", "enum": ["Active", "Pending", "Sold", "Withdrawn"] },
+        "agentId": { "type": "string" },
+        "images": { "type": "array" },
+        "description": { "type": "string" },
+        "virtualTourUrl": { "type": "string" },
+        "floorPlanUrl": { "type": "string" }
+      },
+      "required": ["address", "city", "state", "price", "status"]
+    },
+    "Lead": {
+      "title": "Lead",
+      "description": "Potential client lead",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" },
+        "budget": { "type": "string" },
+        "location": { "type": "string" },
+        "propertyType": { "type": "string" },
+        "source": { "type": "string" },
+        "urgency": { "type": "string" },
+        "interest": { "type": "string" },
+        "status": { "type": "string" },
+        "probability": { "type": "string" },
+        "chatbotStatus": { "type": "string" },
+        "financingStatus": { "type": "string" }
+      },
+      "required": ["name", "status"]
+    },
+    "Task": {
+      "title": "Task",
+      "description": "CRM activity task",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "dueDate": { "type": "string" },
+        "priority": { "type": "string" },
+        "status": { "type": "string" },
+        "category": { "type": "string" },
+        "linkedTo": { "type": "string" }
+      },
+      "required": ["title", "status"]
+    },
+    "VideoProject": {
+      "title": "VideoProject",
+      "description": "AI generated video project",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "propertyId": { "type": "string" },
+        "propertyName": { "type": "string" },
+        "status": { "type": "string" },
+        "videoUrl": { "type": "string" },
+        "prompt": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["propertyId", "status"]
+    },
+    "CRMConnection": {
+      "title": "CRMConnection",
+      "description": "External CRM integration state",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "status": { "type": "string" },
+        "lastSync": { "type": "string" },
+        "leadCount": { "type": "number" }
+      },
+      "required": ["name", "status"]
+    },
+    "Contact": {
+      "title": "Contact",
+      "description": "CRM contact",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" },
+        "tenantId": { "type": "string" }
+      },
+      "required": ["name", "tenantId"]
+    },
+    "CaptureChannel": {
+      "title": "CaptureChannel",
+      "description": "Lead capture channel",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "type": { "type": "string" },
+        "tenantId": { "type": "string" }
+      },
+      "required": ["name", "tenantId"]
+    },
+    "Transaction": {
+      "title": "Transaction",
+      "description": "Real estate transaction",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "dealName": { "type": "string" },
+        "value": { "type": "string" },
+        "stage": { "type": "string" },
+        "clientName": { "type": "string" },
+        "agentId": { "type": "string" },
+        "expectedClosing": { "type": "string" },
+        "documents": { "type": "array" },
+        "tasks": { "type": "array" }
+      },
+      "required": ["dealName", "agentId"]
+    },
+    "Workflow": {
+      "title": "Workflow",
+      "description": "Automation workflow",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "trigger": { "type": "string" },
+        "action": { "type": "string" },
+        "status": { "type": "string" },
+        "nodes": { "type": "number" }
+      },
+      "required": ["name", "status"]
+    },
+    "Deal": {
+      "title": "Deal",
+      "description": "Pipeline deal",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "val": { "type": "string" },
+        "meta": { "type": "string" },
+        "stage": { "type": "string" }
+      },
+      "required": ["name", "stage"]
+    },
+    "Email": {
+      "title": "Email",
+      "description": "Communication email",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "from": { "type": "string" },
+        "subject": { "type": "string" },
+        "time": { "type": "string" },
+        "status": { "type": "string" }
+      },
+      "required": ["from", "subject"]
+    }
+  },
+  "firestore": {
+    "listings": {
+      "schema": "Listing",
+      "description": "Collection of property listings"
+    },
+    "leads": {
+      "schema": "Lead",
+      "description": "Collection of sales leads"
+    },
+    "tasks": {
+      "schema": "Task",
+      "description": "Collection of user tasks"
+    },
+    "videoProjects": {
+      "schema": "VideoProject",
+      "description": "Collection of video production projects"
+    },
+    "crmConnections": {
+      "schema": "CRMConnection",
+      "description": "Collection of CRM integration settings"
+    },
+    "contacts": {
+      "schema": "Contact",
+      "description": "Collection of contacts"
+    },
+    "channels": {
+      "schema": "CaptureChannel",
+      "description": "Collection of capture channels"
+    },
+    "transactions": {
+      "schema": "Transaction",
+      "description": "Collection of transactions"
+    },
+    "workflows": {
+      "schema": "Workflow",
+      "description": "Collection of workflows"
+    },
+    "deals": {
+      "schema": "Deal",
+      "description": "Collection of deals"
+    },
+    "emails": {
+      "schema": "Email",
+      "description": "Collection of emails"
+    }
+  }
+}

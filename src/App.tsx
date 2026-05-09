@@ -92,6 +92,7 @@ import SettingsPage from './components/panels/SettingsPage';
 import MediaProductionPage from './components/panels/MediaProductionPage';
 import CRMIntegrationPage from './components/panels/CRMIntegrationPage';
 import ChatbotWidget from './components/ChatbotWidget';
+import { scoreLeadAI } from './services/aiService';
 
 export default function App() {
   const [activePanel, setActivePanel] = useState<PanelId>('dashboard');
@@ -121,6 +122,7 @@ export default function App() {
   const [transactions, setTransactions] = useState<Transaction[]>(TRANSACTIONS_DATA);
   const [isEngagingAll, setIsEngagingAll] = useState(false);
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
+  const [mlsSyncTime, setMlsSyncTime] = useState<string>('Live');
 
   const [editingWorkflow, setEditingWorkflow] = useState<Workflow | null>(null);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
@@ -276,6 +278,15 @@ export default function App() {
       }
     }
   }, [userProfile, activePanel]);
+
+  // Simulated MLS Sync updates
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = new Date();
+      setMlsSyncTime(`Synced ${now.getHours()}:${now.getMinutes().toString().padStart(2, '0')}`);
+    }, 60000); // Update every minute
+    return () => clearInterval(interval);
+  }, []);
 
   const handleGlobalSync = () => {
     setSyncStatus('Synchronizing global market preferences...');
@@ -512,6 +523,32 @@ export default function App() {
       await deleteDoc(doc(db, 'leads', id));
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, `leads/${id}`);
+    }
+  };
+
+  const handleScoreLead = async (lead: Lead) => {
+    try {
+      const result = await scoreLeadAI(lead);
+      
+      if (!user) {
+        setLeads(prev => prev.map(l => l.id === lead.id ? { 
+          ...l, 
+          probability: result.probability, 
+          status: result.status,
+          chatbotStatus: result.summary 
+        } : l));
+        return;
+      }
+
+      await updateDoc(doc(db, 'leads', lead.id), {
+        probability: result.probability,
+        status: result.status,
+        chatbotStatus: result.summary,
+        qualificationNotes: result.qualificationNotes,
+        updatedAt: serverTimestamp()
+      });
+    } catch (error) {
+      console.error("Failed to score lead:", error);
     }
   };
 
@@ -891,6 +928,18 @@ export default function App() {
             </div>
             
             <div className="ml-auto flex items-center gap-4">
+              {/* MLS Sync Status Indicator */}
+              <div className="hidden xl:flex items-center gap-2 px-3 py-1 bg-navy-mid/60 border border-gold/20 rounded-full shadow-lg">
+                <div className="relative">
+                  <Globe className="w-3.5 h-3.5 text-gold animate-[pulse_3s_infinite]" />
+                  <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-green-500 rounded-full border border-navy animate-pulse" />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[9px] font-bold text-white uppercase tracking-tighter leading-none">US/CA MLS Feeds</span>
+                  <span className="text-[8px] font-medium text-gold/80 leading-none mt-0.5">{mlsSyncTime}</span>
+                </div>
+              </div>
+
               <AgentPill status="active" label="Orchestrator" />
               <AgentPill status="working" label="Judge Agent" />
               <AgentPill status="active" label="MLS Data" />
@@ -938,7 +987,8 @@ export default function App() {
                     onAddLead={() => { setEditingLead(null); setIsAddLeadModalOpen(true); }}
                     onEditLead={handleEditLead}
                     onDeleteLead={handleDeleteLead}
-                    onFindSellers={() => setIsSellerModalOpen(true)} 
+                    onFindSellers={() => setIsSellerModalOpen(true)}
+                    onScoreLead={handleScoreLead}
                   />
                 )}
                 {activePanel === 'ai_assistant' && <AiAssistant />}

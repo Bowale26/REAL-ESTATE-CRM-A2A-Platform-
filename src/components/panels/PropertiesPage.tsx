@@ -20,7 +20,7 @@ import {
   Eye
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { GoogleGenAI } from "@google/genai";
+import { generateListingDescriptionAI } from '../../services/aiService';
 import { LISTINGS_DATA, AGENTS_DATA } from '../../constants';
 import { Listing, Currency } from '../../types';
 import { formatCurrency } from '../../lib/formatters';
@@ -107,21 +107,7 @@ export default function PropertiesPage({ listings, onAddListing, onEditListing, 
       const listing = listings.find(l => l.id === id);
       if (!listing) return;
 
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-      const prompt = `Generate a luxury real estate marketing description for this property:
-        Address: ${listing.address}, ${listing.city}, ${listing.state}
-        Price: ${formatCurrency(listing.price, currency)}
-        Stats: ${listing.beds} beds, ${listing.baths} baths, ${listing.sqft} sqft
-        MLS#: ${listing.mlsNumber}
-        
-        Focus on: High-end lifestyle, architectural details, and market exclusivity. Keep it under 150 words. Format with a catchy headline.`;
-
-      const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: prompt
-      });
-
-      const description = response.text || "Failed to generate description.";
+      const description = await generateListingDescriptionAI(listing, currency);
       
       onEditListing({
         ...listing,

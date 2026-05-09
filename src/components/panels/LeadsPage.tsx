@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Lead } from '../../types';
 import { 
   Target, 
@@ -27,9 +28,17 @@ interface LeadsPageProps {
   onEditLead: (lead: Lead) => void;
   onDeleteLead: (id: string) => void;
   onFindSellers: () => void;
+  onScoreLead: (lead: Lead) => void;
 }
 
-export default function LeadsPage({ leads, onAddLead, onEditLead, onDeleteLead, onFindSellers }: LeadsPageProps) {
+export default function LeadsPage({ leads, onAddLead, onEditLead, onDeleteLead, onFindSellers, onScoreLead }: LeadsPageProps) {
+  const [scoringIds, setScoringIds] = useState<string[]>([]);
+
+  const handleScoreLead = async (lead: Lead) => {
+    setScoringIds(prev => [...prev, lead.id]);
+    await onScoreLead(lead);
+    setScoringIds(prev => prev.filter(id => id !== lead.id));
+  };
   const handleExportLeads = () => {
     const csvContent = "data:text/csv;charset=utf-8," 
       + ["Name,Email,Phone,Budget,Status,Probability"].concat(leads.map(l => `${l.name},${l.email},${l.phone},${l.budget},${l.status},${l.probability}`)).join("\n");
@@ -106,7 +115,7 @@ export default function LeadsPage({ leads, onAddLead, onEditLead, onDeleteLead, 
                   </tr>
                </thead>
                <tbody className="divide-y divide-white/5">
-                  {leads.map((lead) => (
+                   {leads.map((lead) => (
                     <tr key={lead.id} className="group hover:bg-white/[0.02] transition-colors">
                        <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
@@ -183,7 +192,15 @@ export default function LeadsPage({ leads, onAddLead, onEditLead, onDeleteLead, 
                              >
                                 <Trash2 className="w-3.5 h-3.5" />
                              </button>
-                             <button className="p-2 bg-navy rounded border border-gold/30 hover:bg-gold/10 transition-colors ml-2">
+                             <button 
+                                onClick={() => handleScoreLead(lead)}
+                                disabled={scoringIds.includes(lead.id)}
+                                title="Run neural AI scoring"
+                                className={`p-2 bg-navy rounded border border-gold/30 hover:bg-gold/10 transition-colors ml-2 ${scoringIds.includes(lead.id) ? 'animate-pulse' : ''}`}
+                             >
+                                <Zap className={`w-3.5 h-3.5 ${scoringIds.includes(lead.id) ? 'text-gold' : 'text-slate-light'}`} />
+                             </button>
+                             <button className="p-2 bg-navy rounded border border-gold/30 hover:bg-gold/10 transition-colors">
                                 <ChevronRight className="w-3.5 h-3.5 text-gold" />
                              </button>
                           </div>

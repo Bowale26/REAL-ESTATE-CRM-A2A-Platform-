@@ -25,7 +25,10 @@ import {
   Video,
   Database,
   LogIn,
-  LogOut
+  LogOut,
+  Search,
+  Loader2,
+  Activity
 } from 'lucide-react';
 import { db, auth } from './lib/firebase';
 import { 
@@ -91,6 +94,8 @@ import TransactionPage from './components/panels/TransactionPage';
 import SettingsPage from './components/panels/SettingsPage';
 import MediaProductionPage from './components/panels/MediaProductionPage';
 import CRMIntegrationPage from './components/panels/CRMIntegrationPage';
+import VideoCallModal from './components/modals/VideoCallModal';
+import GlobalSearchOverlay from './components/GlobalSearchOverlay';
 import ChatbotWidget from './components/ChatbotWidget';
 import { scoreLeadAI } from './services/aiService';
 
@@ -105,6 +110,16 @@ export default function App() {
   const [isCreateCaptureModalOpen, setIsCreateCaptureModalOpen] = useState(false);
   const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false);
   const [isCreateWorkflowModalOpen, setIsCreateWorkflowModalOpen] = useState(false);
+  const [isVideoCallModalOpen, setIsVideoCallModalOpen] = useState(false);
+  const [activeCallContact, setActiveCallContact] = useState<Contact | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchResults, setSearchResults] = useState<{
+    contacts: Contact[];
+    leads: Lead[];
+    listings: Listing[];
+  }>({ contacts: [], leads: [], listings: [] });
+  const [a2aStatus, setA2aStatus] = useState<{ agent: string; action: string; timestamp: Date } | null>(null);
   
   // Global Context State
   const [currency, setCurrency] = useState<Currency>('CAD');
@@ -284,9 +299,37 @@ export default function App() {
     const interval = setInterval(() => {
       const now = new Date();
       setMlsSyncTime(`Synced ${now.getHours()}:${now.getMinutes().toString().padStart(2, '0')}`);
+      
+      // Random a2a status updates
+      const agents = ['Orchestrator', 'MLS Agent', 'CRM Syncer', 'Enrichment Bot'];
+      const actions = ['syncing cache', 'validating identities', 're-routing hot leads', 'updating market data'];
+      setA2aStatus({
+        agent: agents[Math.floor(Math.random() * agents.length)],
+        action: actions[Math.floor(Math.random() * actions.length)],
+        timestamp: new Date()
+      });
+      setTimeout(() => setA2aStatus(null), 3000);
     }, 60000); // Update every minute
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (searchQuery.trim().length > 1) {
+      setIsSearching(true);
+      const timer = setTimeout(() => {
+        const query = searchQuery.toLowerCase();
+        setSearchResults({
+          contacts: contacts.filter(c => c.name.toLowerCase().includes(query) || c.email.toLowerCase().includes(query)),
+          leads: leads.filter(l => l.name.toLowerCase().includes(query) || l.location.toLowerCase().includes(query)),
+          listings: listings.filter(p => p.address.toLowerCase().includes(query) || p.mlsNumber.toLowerCase().includes(query))
+        });
+        setIsSearching(false);
+      }, 300);
+      return () => clearTimeout(timer);
+    } else {
+      setSearchResults({ contacts: [], leads: [], listings: [] });
+    }
+  }, [searchQuery, contacts, leads, listings]);
 
   const handleGlobalSync = () => {
     setSyncStatus('Synchronizing global market preferences...');
@@ -523,6 +566,23 @@ export default function App() {
       await deleteDoc(doc(db, 'leads', id));
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, `leads/${id}`);
+    }
+  };
+
+  const handleInitiateCall = (contact: Contact) => {
+    setActiveCallContact(contact);
+    setIsVideoCallModalOpen(true);
+    
+    // Log the meeting attempt
+    if (user) {
+      addDoc(collection(db, 'meetings'), {
+        contactId: contact.id,
+        contactName: contact.name,
+        startTime: new Date().toISOString(),
+        status: 'scheduled',
+        agentId: user.uid,
+        createdAt: serverTimestamp()
+      }).catch(err => console.error("Failed to log meeting:", err));
     }
   };
 
@@ -810,6 +870,23 @@ export default function App() {
             </button>
           </motion.div>
         )}
+
+        {a2aStatus && (
+          <motion.div 
+            initial={{ x: 100, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: 100, opacity: 0 }}
+            className="fixed bottom-24 right-8 z-[200] px-4 py-2 bg-navy/80 border border-gold/20 rounded-lg shadow-2xl backdrop-blur-md flex items-center gap-3"
+          >
+            <Activity className="w-3 h-3 text-gold animate-pulse" />
+            <div className="flex flex-col">
+              <span className="text-[8px] font-bold text-gold uppercase tracking-[0.2em] leading-none">A2A Status</span>
+              <span className="text-[10px] text-white/90 mt-1">
+                <span className="font-bold text-gold">{a2aStatus.agent}:</span> {a2aStatus.action}
+              </span>
+            </div>
+          </motion.div>
+        )}
       </AnimatePresence>
 
       <div className="relative z-10 flex h-screen overflow-hidden">
@@ -947,9 +1024,21 @@ export default function App() {
               <div className="relative">
                 <input 
                   type="text" 
-                  placeholder="🔍 Search contacts, leads..." 
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="🔍 Search contacts, leads, properties..." 
                   className="bg-white/6 border border-gold/18 rounded-md text-cream text-xs px-3.5 py-2 w-72 focus:outline-none focus:border-gold transition-colors placeholder:text-slate"
                 />
+                <AnimatePresence>
+                  {searchQuery.length > 0 && (
+                    <GlobalSearchOverlay 
+                      results={searchResults}
+                      isLoading={isSearching}
+                      onClose={() => setSearchQuery('')}
+                      onNavigate={(p) => { setActivePanel(p); setSearchQuery(''); }}
+                    />
+                  )}
+                </AnimatePresence>
               </div>
               
               <button 
@@ -978,6 +1067,7 @@ export default function App() {
                     onAddContact={() => { setEditingContact(null); setIsAddContactModalOpen(true); }} 
                     onEditContact={handleEditContact}
                     onDeleteContact={handleDeleteContact}
+                    onInitiateCall={handleInitiateCall}
                     onNavigate={setActivePanel}
                   />
                 )}
@@ -1189,6 +1279,12 @@ export default function App() {
         onClose={() => { setIsCreateWorkflowModalOpen(false); setEditingWorkflow(null); }}
         onAdd={handleCreateWorkflow}
         editingWorkflow={editingWorkflow}
+      />
+
+      <VideoCallModal 
+        isOpen={isVideoCallModalOpen}
+        onClose={() => setIsVideoCallModalOpen(false)}
+        contact={activeCallContact}
       />
 
       <ChatbotWidget />

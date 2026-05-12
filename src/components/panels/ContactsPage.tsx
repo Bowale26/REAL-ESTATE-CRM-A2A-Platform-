@@ -7,6 +7,7 @@ import {
   MoreHorizontal, 
   Mail, 
   Phone, 
+  Video,
   MapPin, 
   Zap, 
   ChevronRight, 
@@ -30,10 +31,11 @@ interface ContactsPageProps {
   onAddContact: () => void;
   onEditContact: (contact: Contact) => void;
   onDeleteContact: (id: string) => void;
+  onInitiateCall: (contact: Contact) => void;
   onNavigate?: (id: PanelId) => void;
 }
 
-export default function ContactsPage({ contacts, onAddContact, onEditContact, onDeleteContact, onNavigate }: ContactsPageProps) {
+export default function ContactsPage({ contacts, onAddContact, onEditContact, onDeleteContact, onInitiateCall, onNavigate }: ContactsPageProps) {
   const [isEnrichingAll, setIsEnrichingAll] = useState(false);
   const [enrichmentProgress, setEnrichmentProgress] = useState(0);
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
@@ -142,6 +144,7 @@ export default function ContactsPage({ contacts, onAddContact, onEditContact, on
              onViewDetails={handleViewDetails} 
              onEdit={() => onEditContact(contact)}
              onDelete={() => onDeleteContact(contact.id)}
+             onInitiateCall={() => onInitiateCall(contact)}
            />
          ))}
       </div>
@@ -155,7 +158,7 @@ export default function ContactsPage({ contacts, onAddContact, onEditContact, on
   );
 }
 
-function ContactCard({ contact, onViewDetails, onEdit, onDelete }: { contact: Contact, onViewDetails: (c: Contact) => void, onEdit: () => void, onDelete: () => void }) {
+function ContactCard({ contact, onViewDetails, onEdit, onDelete, onInitiateCall }: { contact: Contact, onViewDetails: (c: Contact) => void, onEdit: () => void, onDelete: () => void, onInitiateCall: () => void }) {
   return (
     <motion.div 
       whileHover={{ y: -4 }}
@@ -228,6 +231,13 @@ function ContactCard({ contact, onViewDetails, onEdit, onDelete }: { contact: Co
              </button>
              <button className="p-2.5 bg-navy border border-white/10 rounded-xl hover:border-gold transition-colors">
                 <Phone className="w-4 h-4 text-slate-light hover:text-gold" />
+             </button>
+             <button 
+               onClick={(e) => { e.stopPropagation(); onInitiateCall(); }}
+               className="p-2.5 bg-navy border border-white/10 rounded-xl hover:border-gold transition-colors"
+               title="Matrix Video Link"
+             >
+                <Video className="w-4 h-4 text-slate-light hover:text-gold" />
              </button>
           </div>
           <button 

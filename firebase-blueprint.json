@@ -67,6 +67,7 @@
       "type": "object",
       "properties": {
         "id": { "type": "string" },
+        "userId": { "type": "string" },
         "propertyId": { "type": "string" },
         "propertyName": { "type": "string" },
         "status": { "type": "string" },
@@ -74,7 +75,7 @@
         "prompt": { "type": "string" },
         "createdAt": { "type": "string" }
       },
-      "required": ["propertyId", "status"]
+      "required": ["propertyId", "status", "userId"]
     },
     "CRMConnection": {
       "title": "CRMConnection",
@@ -170,6 +171,22 @@
         "status": { "type": "string" }
       },
       "required": ["from", "subject"]
+    },
+    "Meeting": {
+      "title": "Meeting",
+      "description": "Video call meeting log",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "agentId": { "type": "string" },
+        "contactId": { "type": "string" },
+        "contactName": { "type": "string" },
+        "startTime": { "type": "string" },
+        "duration": { "type": "number" },
+        "status": { "type": "string", "enum": ["completed", "missed", "scheduled"] },
+        "recordingUrl": { "type": "string" }
+      },
+      "required": ["contactId", "status", "agentId"]
     }
   },
   "firestore": {
@@ -216,6 +233,10 @@
     "emails": {
       "schema": "Email",
       "description": "Collection of emails"
+    },
+    "meetings": {
+      "schema": "Meeting",
+      "description": "Collection of video call meeting logs"
     }
   }
 }

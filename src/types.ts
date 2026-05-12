@@ -222,3 +222,13 @@ export interface CRMConnection {
   lastSync: string;
   leadCount: number;
 }
+
+export interface Meeting {
+  id: string;
+  contactId: string;
+  contactName: string;
+  startTime: string;
+  duration: number;
+  status: 'completed' | 'missed' | 'scheduled';
+  recordingUrl?: string;
+}

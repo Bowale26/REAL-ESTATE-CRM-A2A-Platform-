@@ -37,6 +37,7 @@ export default function MediaProductionPage() {
   const [activeAgent, setActiveAgent] = useState<string>('Orchestrator');
   const [judgeStatus, setJudgeStatus] = useState<'IDLE' | 'VALIDATING' | 'APPROVED' | 'REJECTED'>('IDLE');
   const [editingProject, setEditingProject] = useState<VideoProject | null>(null);
+  const [previewProject, setPreviewProject] = useState<VideoProject | null>(null);
   const [isSyncing, setIsSyncing] = useState<string | null>(null);
   const [hasApiKey, setHasApiKey] = useState<boolean>(false);
   const [showApiKeyDialog, setShowApiKeyDialog] = useState<boolean>(false);
@@ -685,9 +686,25 @@ export default function MediaProductionPage() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+            className="w-full"
           >
-            {projects.map((project) => (
+            {projects.length === 0 ? (
+              <div className="flex flex-col items-center justify-center p-20 bg-navy-mid/40 border border-dashed border-gold/20 rounded-3xl text-center">
+                <Video className="w-16 h-16 text-gold/20 mb-6" />
+                <h3 className="text-xl font-serif font-bold text-white mb-2">No Neural Productions Yet</h3>
+                <p className="text-sm text-slate max-w-sm mx-auto mb-8">
+                  Begin your first AI cinematic tour by selecting a property asset and choosing a neural director engine.
+                </p>
+                <button 
+                  onClick={() => setActiveTab('create')}
+                  className="px-8 py-3 bg-gold text-navy rounded-xl font-bold text-[10px] uppercase tracking-widest shadow-xl hover:scale-105 active:scale-95 transition-all"
+                >
+                  Create New Production
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {projects.map((project) => (
                <div key={project.id} className="bg-navy-mid/60 border border-gold/18 rounded-2xl overflow-hidden group relative">
                   {/* Action Menu Overlays */}
                   <div className="absolute top-4 right-4 z-20 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -705,7 +722,7 @@ export default function MediaProductionPage() {
                      </button>
                   </div>
 
-                  <div className="aspect-video bg-navy relative overflow-hidden">
+                  <div className="aspect-video bg-navy relative overflow-hidden cursor-pointer" onClick={() => project.status === 'completed' && setPreviewProject(project)}>
                      {project.status === 'completed' && project.videoUrl ? (
                          <video 
                            src={project.videoUrl}
@@ -761,6 +778,12 @@ export default function MediaProductionPage() {
                            {project.aiSettings.motion} • {project.aiSettings.stagingStyle}
                         </div>
                      </div>
+
+                     {project.prompt && (
+                        <div className="mb-4 p-2 bg-navy/40 border border-white/5 rounded text-[8px] text-slate italic line-clamp-2">
+                          "{project.prompt}"
+                        </div>
+                     )}
                      
                      <div className="flex items-center justify-between pt-4 border-t border-white/5">
                         <div className="flex gap-2">
@@ -777,18 +800,23 @@ export default function MediaProductionPage() {
                            </button>
                         </div>
                         <div className="flex gap-1.5">
-                           <button className="p-2 text-slate hover:text-white transition-colors bg-navy border border-white/10 rounded">
-                              <Download className="w-3.5 h-3.5" />
+                           <button 
+                             onClick={() => project.status === 'completed' && setPreviewProject(project)}
+                             className="p-2 text-slate hover:text-white transition-colors bg-navy border border-white/10 rounded"
+                           >
+                              <Play className="w-3.5 h-3.5" />
                            </button>
                            <button className="p-2 text-slate hover:text-white transition-colors bg-navy border border-white/10 rounded">
-                              <SettingsIcon className="w-3.5 h-3.5" />
+                              <Download className="w-3.5 h-3.5" />
                            </button>
                         </div>
                      </div>
                   </div>
-               </div>
-            ))}
-          </motion.div>
+                </div>
+              ))}
+            </div>
+          )}
+        </motion.div>
         )}
       </AnimatePresence>
 
@@ -982,6 +1010,46 @@ export default function MediaProductionPage() {
                    </div>
                 </div>
              </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* API Key Selection Dialog */}
+      <AnimatePresence>
+        {previewProject && (
+          <div className="fixed inset-0 z-[400] flex items-center justify-center p-4 bg-navy/95 backdrop-blur-2xl">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="w-full max-w-6xl aspect-video bg-black rounded-3xl overflow-hidden shadow-2xl relative border border-gold/20"
+            >
+              <button 
+                onClick={() => setPreviewProject(null)}
+                className="absolute top-6 right-6 z-50 p-3 bg-navy/60 backdrop-blur-md rounded-full text-white hover:text-gold transition-all border border-white/10"
+              >
+                <X className="w-6 h-6" />
+              </button>
+              
+              <video 
+                src={previewProject.videoUrl} 
+                className="w-full h-full" 
+                controls 
+                autoPlay 
+              />
+              
+              <div className="absolute bottom-0 left-0 right-0 p-8 bg-gradient-to-t from-black to-transparent pointer-events-none">
+                <h3 className="text-2xl font-serif font-bold text-white mb-2">{previewProject.customName || previewProject.propertyName}</h3>
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2 px-3 py-1 bg-gold/20 border border-gold/30 rounded-full text-[10px] text-gold font-bold uppercase tracking-widest">
+                    <Zap className="w-3 h-3" /> {previewProject.aiSettings.engine}
+                  </div>
+                  <div className="text-[10px] text-slate-light font-bold uppercase tracking-widest">
+                    {previewProject.aiSettings.motion} • {previewProject.aiSettings.stagingStyle} • {previewProject.createdAt}
+                  </div>
+                </div>
+              </div>
+            </motion.div>
           </div>
         )}
       </AnimatePresence>

@@ -96,3 +96,52 @@ export async function scoreLeadAI(lead: Lead): Promise<LeadScoreResult> {
     };
   }
 }
+
+export async function routeLeadAI(lead: Lead): Promise<{ route: string; agent: string; reasoning: string }> {
+  const prompt = `
+    As an AI Lead Routing Director, determine the optimal routing path and agent assignment for this real estate lead.
+    
+    Lead Data:
+    - Lead: \${lead.name}
+    - Status: \${lead.status}
+    - Interest: \${lead.interest}
+    - Location: \${lead.location}
+    - Budget: \${lead.budget}
+    
+    Agents Available:
+    1. Sarah Miller (Luxury Specialist)
+    2. Michael Chen (Investment Specialist)
+    3. Elena Rodriguez (Relocation Specialist)
+    4. AI Bot (Initial Nurture)
+    
+    Output JSON with "route" (e.g. "Sarah Miller", "Nurture Track"), "agent" (Sarah, Michael, Elena, or Bot), and "reasoning".
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            route: { type: Type.STRING },
+            agent: { type: Type.STRING },
+            reasoning: { type: Type.STRING }
+          },
+          required: ["route", "agent", "reasoning"]
+        }
+      }
+    });
+
+    return JSON.parse(response.text);
+  } catch (error) {
+    console.error("AI Routing Error:", error);
+    return {
+      route: "Default General",
+      agent: "Unassigned",
+      reasoning: "Automated routing defaulted due to engine timeout."
+    };
+  }
+}

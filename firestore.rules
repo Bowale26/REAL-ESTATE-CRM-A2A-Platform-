@@ -205,7 +205,34 @@ service cloud.firestore {
 
     // Video Projects
     match /videoProjects/{projectId} {
-      allow read, write: if isEmailVerified() && (isAdmin() || isOwner(resource.data.userId));
+      allow list, get: if isEmailVerified() && (isAdmin() || isOwner(resource.data.userId));
+      allow create: if isEmailVerified() && isValidVideoProject(incoming()) && isOwner(incoming().userId);
+      allow update: if isEmailVerified() && (isAdmin() || isOwner(resource.data.userId)) && (
+        isValidVideoProject(incoming()) &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['status', 'videoUrl', 'synced', 'updatedAt'])
+      );
+      allow delete: if isAdmin() || isOwner(resource.data.userId);
+    }
+
+    function isValidVideoProject(data) {
+      return data.propertyId is string && data.propertyId.size() <= 128 &&
+             data.userId is string && isValidId(data.userId);
+    }
+
+    // Meetings
+    match /meetings/{meetingId} {
+      allow list, get: if isEmailVerified() && (isAdmin() || isOwner(resource.data.agentId));
+      allow create: if isEmailVerified() && isValidMeeting(incoming()) && isOwner(incoming().agentId);
+      allow update: if isEmailVerified() && (isAdmin() || isOwner(resource.data.agentId)) && (
+        isValidMeeting(incoming()) &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['status', 'duration', 'recordingUrl', 'updatedAt'])
+      );
+      allow delete: if isAdmin() || isOwner(resource.data.agentId);
+    }
+
+    function isValidMeeting(data) {
+      return data.contactId is string && data.contactId.size() <= 128 &&
+             data.agentId is string && isValidId(data.agentId);
     }
 
     // CRM Connections

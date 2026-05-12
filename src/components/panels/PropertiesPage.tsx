@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Building2, 
   Search, 
@@ -17,7 +17,9 @@ import {
   CheckCircle2,
   Trash2,
   Edit3,
-  Eye
+  Eye,
+  LayoutGrid,
+  List as ListIcon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { generateListingDescriptionAI } from '../../services/aiService';
@@ -40,6 +42,13 @@ export default function PropertiesPage({ listings, onAddListing, onEditListing, 
   const [isGeneratingDescription, setIsGeneratingDescription] = useState<string | null>(null);
   const [selectedProperty, setSelectedProperty] = useState<Listing | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setIsLoading(false), 800);
+    return () => clearTimeout(timer);
+  }, []);
 
   const handleOpenDetails = (listing: Listing) => {
     setSelectedProperty(listing);
@@ -128,6 +137,20 @@ export default function PropertiesPage({ listings, onAddListing, onEditListing, 
           <p className="text-[10px] text-gold font-bold uppercase tracking-[0.2em] mt-1">Cross-Border Portfolio Management</p>
         </div>
         <div className="flex items-center gap-3">
+          <div className="flex items-center bg-navy-mid border border-gold/18 rounded-md p-1">
+             <button 
+               onClick={() => setViewMode('grid')}
+               className={`p-1.5 rounded transition-all ${viewMode === 'grid' ? 'bg-gold text-navy shadow-lg' : 'text-slate hover:text-white'}`}
+             >
+                <LayoutGrid className="w-3.5 h-3.5" />
+             </button>
+             <button 
+               onClick={() => setViewMode('list')}
+               className={`p-1.5 rounded transition-all ${viewMode === 'list' ? 'bg-gold text-navy shadow-lg' : 'text-slate hover:text-white'}`}
+             >
+                <ListIcon className="w-3.5 h-3.5" />
+             </button>
+          </div>
           <div className="flex items-center bg-navy-mid border border-gold/18 rounded-md px-3 py-1.5 self-start">
              <Filter className="w-3.5 h-3.5 text-gold mr-2" />
              <span className="text-[10px] font-bold text-slate uppercase tracking-widest">Filter: All Markets</span>
@@ -141,8 +164,10 @@ export default function PropertiesPage({ listings, onAddListing, onEditListing, 
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-6">
-        {listings.map((property) => (
+      <div className={viewMode === 'grid' ? "grid grid-cols-1 lg:grid-cols-2 gap-6" : "grid grid-cols-1 gap-4"}>
+        {isLoading ? (
+          Array.from({ length: 4 }).map((_, i) => <PropertySkeleton key={i} mode={viewMode} />)
+        ) : listings.map((property) => (
           <ListingCard 
             key={property.id} 
             property={property} 
@@ -152,6 +177,7 @@ export default function PropertiesPage({ listings, onAddListing, onEditListing, 
             onDelete={() => onDeleteListing(property.id)}
             isGenerating={isGeneratingDescription === property.id}
             onViewDetails={() => handleOpenDetails(property)}
+            compact={viewMode === 'list'}
           />
         ))}
       </div>
@@ -296,8 +322,38 @@ interface ListingCardProps {
   onViewDetails: () => void;
 }
 
-function ListingCard({ property, currency, onGenerateDescription, onEdit, onDelete, isGenerating, onViewDetails }: ListingCardProps) {
+function ListingCard({ property, currency, onGenerateDescription, onEdit, onDelete, isGenerating, onViewDetails, compact }: ListingCardProps & { compact?: boolean }) {
   const agent = AGENTS_DATA.find(a => a.id === property.agentId);
+
+  if (compact) {
+    return (
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="bg-navy-mid/40 border border-white/5 rounded-xl p-4 flex items-center gap-6 hover:border-gold/30 transition-all group shadow-lg"
+      >
+        <div className="w-20 h-16 bg-navy rounded-lg flex items-center justify-center text-gold/20 flex-shrink-0 relative overflow-hidden">
+           <ImageIcon className="w-6 h-6" />
+           <div className="absolute inset-0 bg-gradient-to-br from-gold/5 to-transparent" />
+        </div>
+        <div className="flex-1 min-w-0">
+           <div className="flex items-center gap-2 mb-1">
+              <h3 className="text-sm font-bold text-white truncate">{property.address}</h3>
+              <span className="text-[8px] font-bold text-gold/60 uppercase px-1.5 py-0.5 bg-gold/5 rounded border border-gold/10">{property.status}</span>
+           </div>
+           <div className="text-[10px] text-slate font-medium truncate">{property.city}, {property.state} • {property.mlsNumber}</div>
+        </div>
+        <div className="text-right">
+           <div className="text-sm font-bold text-gold">{formatCurrency(property.price, currency)}</div>
+           <div className="text-[9px] text-slate-light mt-0.5">{property.beds}b / {property.baths}b / {property.sqft}ft</div>
+        </div>
+        <div className="flex items-center gap-2">
+           <button onClick={onViewDetails} className="p-2 text-slate hover:text-gold transition-colors"><Eye className="w-4 h-4" /></button>
+           <button onClick={onEdit} className="p-2 text-slate hover:text-white transition-colors"><Edit3 className="w-4 h-4" /></button>
+        </div>
+      </motion.div>
+    );
+  }
 
   return (
     <motion.div 
@@ -414,5 +470,41 @@ function ListingCard({ property, currency, onGenerateDescription, onEdit, onDele
          </div>
       </div>
     </motion.div>
+  );
+}
+
+function PropertySkeleton({ mode }: { mode: 'grid' | 'list' }) {
+  if (mode === 'list') {
+    return (
+      <div className="h-24 bg-navy-mid/20 border border-white/5 rounded-xl animate-pulse flex items-center px-4 gap-4">
+        <div className="w-20 h-16 bg-white/5 rounded-lg" />
+        <div className="flex-1 space-y-2">
+           <div className="h-3 bg-white/5 rounded w-1/3" />
+           <div className="h-2 bg-white/5 rounded w-1/4" />
+        </div>
+        <div className="w-24 space-y-2">
+           <div className="h-3 bg-white/5 rounded w-full" />
+           <div className="h-2 bg-white/5 rounded w-2/3 ml-auto" />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-[400px] bg-navy-mid/20 border border-gold/10 rounded-lg animate-pulse flex flex-col">
+       <div className="h-48 bg-white/5 w-full" />
+       <div className="p-6 flex-1 space-y-4">
+          <div className="h-4 bg-white/5 rounded w-3/4" />
+          <div className="h-2 bg-white/5 rounded w-1/2" />
+          <div className="h-12 bg-white/5 rounded-xl" />
+          <div className="mt-auto h-10 border-t border-white/5 flex items-center pt-4 justify-between">
+             <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-white/5" />
+                <div className="h-3 bg-white/5 rounded w-16" />
+             </div>
+             <div className="h-2 bg-white/5 rounded w-20" />
+          </div>
+       </div>
+    </div>
   );
 }

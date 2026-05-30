@@ -1060,7 +1060,7 @@ export default function App() {
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ duration: 0.2 }}
               >
-                {activePanel === 'dashboard' && <Dashboard onNavigate={setActivePanel} currency={currency} />}
+                {activePanel === 'dashboard' && <Dashboard onNavigate={setActivePanel} currency={currency} leads={leads} listings={listings} />}
                 {activePanel === 'contacts' && (
                   <ContactsPage 
                     contacts={contacts} 
@@ -1111,6 +1111,7 @@ export default function App() {
                     onAddTask={() => setIsAddTaskModalOpen(true)} 
                     onToggleTask={handleToggleTask}
                     onNavigate={setActivePanel}
+                    onReorderTasks={setTasks}
                   />
                 )}
                 {activePanel === 'analytics' && <AnalyticsPage currency={currency} />}

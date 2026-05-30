@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Task, PanelId } from '../../types';
-import { CheckSquare, Calendar, Filter, Plus, Search, MoreHorizontal, Clock, Zap, Flag } from 'lucide-react';
+import { CheckSquare, Calendar, Filter, Plus, Search, MoreHorizontal, Clock, Zap, Flag, GripVertical } from 'lucide-react';
 import { motion } from 'motion/react';
 
 interface TasksPageProps {
@@ -8,15 +8,56 @@ interface TasksPageProps {
   onAddTask: () => void;
   onToggleTask: (id: string) => void;
   onNavigate?: (panel: PanelId) => void;
+  onReorderTasks?: (tasks: Task[]) => void;
 }
 
-export default function TasksPage({ tasks, onAddTask, onToggleTask, onNavigate }: TasksPageProps) {
+export default function TasksPage({ tasks, onAddTask, onToggleTask, onNavigate, onReorderTasks }: TasksPageProps) {
   const [filter, setFilter] = useState<'All' | 'Pending' | 'Completed'>('Pending');
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
 
   const filteredTasks = tasks.filter(task => {
     if (filter === 'All') return true;
     return task.status === filter;
   });
+
+  const handleDragStart = (e: React.DragEvent, id: string) => {
+    setDraggingId(id);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', id);
+  };
+
+  const handleDragOver = (e: React.DragEvent, id: string) => {
+    e.preventDefault();
+    if (draggingId !== id) {
+      setDragOverId(id);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent, targetId: string) => {
+    e.preventDefault();
+    if (!draggingId || draggingId === targetId) return;
+
+    const draggingIndex = tasks.findIndex(t => t.id === draggingId);
+    const targetIndex = tasks.findIndex(t => t.id === targetId);
+
+    if (draggingIndex === -1 || targetIndex === -1) return;
+
+    const reorderedList = [...tasks];
+    const [draggedItem] = reorderedList.splice(draggingIndex, 1);
+    reorderedList.splice(targetIndex, 0, draggedItem);
+
+    if (onReorderTasks) {
+      onReorderTasks(reorderedList);
+    }
+    setDraggingId(null);
+    setDragOverId(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggingId(null);
+    setDragOverId(null);
+  };
 
   return (
     <div className="space-y-6">
@@ -72,7 +113,7 @@ export default function TasksPage({ tasks, onAddTask, onToggleTask, onNavigate }
           <table className="w-full border-collapse">
             <thead>
               <tr className="border-b border-white/5 bg-navy/40">
-                <th className="w-10 px-5 py-3"></th>
+                <th className="w-16 px-5 py-3 text-left text-[10px] uppercase tracking-widest text-slate font-semibold">Order</th>
                 <th className="text-[10px] uppercase tracking-widest text-slate font-semibold text-left px-5 py-3">Task Details</th>
                 <th className="text-[10px] uppercase tracking-widest text-slate font-semibold text-left px-5 py-3 text-center">Due date</th>
                 <th className="text-[10px] uppercase tracking-widest text-slate font-semibold text-left px-5 py-3 text-center">Priority</th>
@@ -87,7 +128,17 @@ export default function TasksPage({ tasks, onAddTask, onToggleTask, onNavigate }
                 </tr>
               ) : (
                 filteredTasks.map((task) => (
-                  <TaskRow key={task.id} task={task} onToggle={() => onToggleTask(task.id)} />
+                  <TaskRow 
+                    key={task.id} 
+                    task={task} 
+                    onToggle={() => onToggleTask(task.id)} 
+                    onDragStart={(e) => handleDragStart(e, task.id)}
+                    onDragOver={(e) => handleDragOver(e, task.id)}
+                    onDrop={(e) => handleDrop(e, task.id)}
+                    onDragEnd={handleDragEnd}
+                    isDragging={draggingId === task.id}
+                    isDragOver={dragOverId === task.id}
+                  />
                 ))
               )}
             </tbody>
@@ -97,20 +148,20 @@ export default function TasksPage({ tasks, onAddTask, onToggleTask, onNavigate }
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-navy-mid/60 border border-gold/18 rounded-lg p-5">
-           <h4 className="text-xs font-bold text-gold uppercase tracking-[2px] mb-4 flex items-center gap-2">
-             <Zap className="w-3.5 h-3.5" /> AI Priority Engine
-           </h4>
-           <p className="text-sm text-slate-light mb-4">A2A Cognitive Analysis has prioritized these tasks based on lead probability and imminent deadlines.</p>
-           <div className="space-y-3">
-              <PriorityPrompt 
-                title="Thompson CMA — Overdue" 
-                desc="Market change detected: 3 new listings in their neighborhood. Send updated CMA now to capture interest." 
-              />
-              <PriorityPrompt 
-                title="Follow up: Mitchell Listing" 
-                desc="Lead score increased to 94%. Cognitive analysis suggests a phone call between 5-6pm today." 
-              />
-           </div>
+            <h4 className="text-xs font-bold text-gold uppercase tracking-[2px] mb-4 flex items-center gap-2">
+              <Zap className="w-3.5 h-3.5" /> AI Priority Engine
+            </h4>
+            <p className="text-sm text-slate-light mb-4">A2A Cognitive Analysis has prioritized these tasks based on lead probability and imminent deadlines.</p>
+            <div className="space-y-3">
+               <PriorityPrompt 
+                 title="Thompson CMA — Overdue" 
+                 desc="Market change detected: 3 new listings in their neighborhood. Send updated CMA now to capture interest." 
+               />
+               <PriorityPrompt 
+                 title="Follow up: Mitchell Listing" 
+                 desc="Lead score increased to 94%. Cognitive analysis suggests a phone call between 5-6pm today." 
+               />
+            </div>
         </div>
 
         <div className="bg-navy-mid/60 border border-gold/18 rounded-lg p-5">
@@ -163,20 +214,53 @@ function Tab({ active, label, onClick }: { active: boolean, label: string, onCli
   );
 }
 
-function TaskRow({ task, onToggle }: { task: Task, onToggle: () => void, key?: string }) {
+function TaskRow({ 
+  task, 
+  onToggle, 
+  onDragStart, 
+  onDragOver, 
+  onDrop, 
+  onDragEnd, 
+  isDragging, 
+  isDragOver 
+}: { 
+  task: Task; 
+  onToggle: () => void; 
+  onDragStart: (e: React.DragEvent) => void;
+  onDragOver: (e: React.DragEvent) => void;
+  onDrop: (e: React.DragEvent) => void;
+  onDragEnd: () => void;
+  isDragging: boolean;
+  isDragOver: boolean;
+}) {
   const isPending = task.status === 'Pending';
   
   return (
-    <tr className="border-b border-white/5 hover:bg-white/[0.02] transition-colors group">
-      <td className="px-5 py-4">
-        <button 
-          onClick={onToggle}
-          className={`w-5 h-5 rounded border flex items-center justify-center transition-all ${
-            isPending ? 'border-gold/30 hover:border-gold' : 'bg-gold border-gold'
-          }`}
-        >
-          {!isPending && <CheckSquare className="w-3.5 h-3.5 text-navy fill-navy" />}
-        </button>
+    <tr 
+      draggable
+      onDragStart={onDragStart}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+      onDragEnd={onDragEnd}
+      className={`border-b border-white/5 hover:bg-white/[0.02] transition-colors group cursor-grab active:cursor-grabbing ${
+        isDragging ? 'opacity-30 bg-navy' : ''
+      } ${
+        isDragOver ? 'border-t-2 border-t-gold bg-gold/5 animate-pulse' : ''
+      }`}
+    >
+      <td className="px-5 py-4 flex items-center gap-2">
+         {/* Grip Drag Handle */}
+         <div className="text-slate/40 group-hover:text-gold/60 cursor-grab active:cursor-grabbing transition-colors mr-1 flex-shrink-0" title="Drag to reorder">
+            <GripVertical className="w-3.5 h-3.5" />
+         </div>
+         <button 
+           onClick={(e) => { e.stopPropagation(); onToggle(); }}
+           className={`w-5 h-5 rounded border flex items-center justify-center transition-all flex-shrink-0 ${
+             isPending ? 'border-gold/30 hover:border-gold cursor-pointer' : 'bg-gold border-gold cursor-pointer'
+           }`}
+         >
+           {!isPending && <CheckSquare className="w-3.5 h-3.5 text-navy fill-navy" />}
+         </button>
       </td>
       <td className="px-5 py-4">
          <div className={`text-sm font-medium transition-all ${isPending ? 'text-white' : 'text-slate line-through opacity-50'}`}>

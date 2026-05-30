@@ -40,6 +40,11 @@ export default function ContactsPage({ contacts, onAddContact, onEditContact, on
   const [enrichmentProgress, setEnrichmentProgress] = useState(0);
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  
+  // Bulk state managers
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [archivedCount, setArchivedCount] = useState<number | null>(null);
 
   const handleEnrichAll = () => {
     setIsEnrichingAll(true);
@@ -74,8 +79,37 @@ export default function ContactsPage({ contacts, onAddContact, onEditContact, on
     document.body.removeChild(link);
   };
 
+  // Bulk action triggers
+  const handleToggleSelectId = (id: string) => {
+    setSelectedIds(prev => 
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAll = () => {
+    if (selectedIds.length === contacts.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(contacts.map(c => c.id));
+    }
+  };
+
+  const executeBulkDelete = () => {
+    selectedIds.forEach(id => onDeleteContact(id));
+    setSelectedIds([]);
+    setConfirmDelete(false);
+  };
+
+  const executeBulkArchive = () => {
+    setArchivedCount(selectedIds.length);
+    setSelectedIds([]);
+    setTimeout(() => {
+      setArchivedCount(null);
+    }, 3000);
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative pb-20">
       {/* Header Intelligence */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -112,14 +146,26 @@ export default function ContactsPage({ contacts, onAddContact, onEditContact, on
         </div>
       </div>
 
-      {/* Advanced Filtering */}
+      {/* Advanced Filtering & Bulk Actions */}
       <div className="bg-navy-mid/60 border border-gold/18 rounded-xl p-4 flex flex-col md:flex-row gap-4 items-center">
-         <div className="relative flex-1 w-full">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate" />
-            <input 
-              className="w-full bg-navy border border-white/10 rounded-lg pl-10 pr-4 py-2 text-xs text-white outline-none focus:border-gold transition-all" 
-              placeholder="Query specialized contact pool..." 
-            />
+         <div className="relative flex-1 w-full flex items-center gap-3">
+            <button
+               onClick={handleSelectAll}
+               className="flex items-center gap-2 px-3.5 py-2 bg-navy border border-white/10 rounded-lg text-[10px] font-bold text-slate hover:text-white transition-all hover:border-gold/50 cursor-pointer flex-shrink-0"
+               title="Toggle Multi-Select Mode"
+            >
+               <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center transition-all ${selectedIds.length === contacts.length ? 'border-gold bg-gold text-navy' : 'border-white/20'}`}>
+                  {selectedIds.length === contacts.length && <CheckCircle2 className="w-2.5 h-2.5" />}
+               </div>
+               <span className="uppercase tracking-widest">{selectedIds.length === contacts.length ? 'Deselect All' : 'Select All'} ({contacts.length})</span>
+            </button>
+            <div className="relative flex-1">
+               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate" />
+               <input 
+                 className="w-full bg-navy border border-white/10 rounded-lg pl-10 pr-4 py-2 text-xs text-white outline-none focus:border-gold transition-all" 
+                 placeholder="Query specialized contact pool..." 
+               />
+            </div>
          </div>
          <div className="flex items-center gap-3 w-full md:w-auto">
             <button className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-[10px] font-bold text-slate uppercase tracking-widest hover:text-white transition-all">
@@ -141,6 +187,8 @@ export default function ContactsPage({ contacts, onAddContact, onEditContact, on
            <ContactCard 
              key={contact.id} 
              contact={contact} 
+             isSelected={selectedIds.includes(contact.id)}
+             onToggleSelect={() => handleToggleSelectId(contact.id)}
              onViewDetails={handleViewDetails} 
              onEdit={() => onEditContact(contact)}
              onDelete={() => onDeleteContact(contact.id)}
@@ -148,6 +196,89 @@ export default function ContactsPage({ contacts, onAddContact, onEditContact, on
            />
          ))}
       </div>
+
+      {/* Dynamic Bulk Action Floating Dock */}
+      <AnimatePresence>
+         {selectedIds.length > 0 && (
+           <motion.div 
+             initial={{ y: 50, opacity: 0 }}
+             animate={{ y: 0, opacity: 1 }}
+             exit={{ y: 50, opacity: 0 }}
+             className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 bg-navy/95 border-2 border-gold/30 rounded-2xl px-6 py-4 flex items-center gap-6 shadow-2xl backdrop-blur-xl"
+           >
+              {!confirmDelete ? (
+                <>
+                  <div className="flex flex-col">
+                     <span className="text-[11px] font-bold text-gold uppercase tracking-widest">{selectedIds.length} Sovereign Clients Selected</span>
+                     <span className="text-[9px] text-slate mt-0.5">Automated batch command interface active</span>
+                  </div>
+                  <div className="h-8 w-px bg-white/10" />
+                  <div className="flex items-center gap-3">
+                     <button 
+                       onClick={executeBulkArchive}
+                       className="px-4 py-1.5 bg-gold/10 border border-gold/20 rounded-lg text-[10px] font-bold text-gold uppercase tracking-widest hover:bg-gold/25 transition-all"
+                     >
+                       Bulk Archive
+                     </button>
+                     <button 
+                       onClick={() => setConfirmDelete(true)}
+                       className="px-4 py-1.5 bg-red-600/20 border border-red-500/30 rounded-lg text-[10px] font-bold text-red-400 uppercase tracking-widest hover:bg-red-600 hover:text-white transition-all"
+                     >
+                       Bulk Delete
+                     </button>
+                     <button 
+                       onClick={() => setSelectedIds([])}
+                       className="text-[10px] font-bold text-slate hover:text-white uppercase tracking-widest"
+                     >
+                       Cancel
+                     </button>
+                  </div>
+                </>
+              ) : (
+                <div className="flex items-center gap-6">
+                   <div className="flex flex-col">
+                      <span className="text-[11px] font-bold text-red-400 uppercase tracking-widest">Confirm permanent deletion of {selectedIds.length} contact records?</span>
+                      <span className="text-[9px] text-slate mt-0.5 font-bold">This operation is secure but completely irreversible</span>
+                   </div>
+                   <div className="flex items-center gap-3">
+                      <button 
+                        onClick={executeBulkDelete}
+                        className="px-4 py-1.5 bg-red-600 rounded-lg text-[10px] font-bold text-white uppercase tracking-widest hover:bg-red-500 transition-all"
+                      >
+                        Yes, Delete
+                      </button>
+                      <button 
+                        onClick={() => setConfirmDelete(false)}
+                        className="px-4 py-1.5 bg-navy border border-white/10 rounded-lg text-[10px] font-bold text-slate hover:text-white transition-all"
+                      >
+                        Cancel
+                      </button>
+                   </div>
+                </div>
+              )}
+           </motion.div>
+         )}
+      </AnimatePresence>
+
+      {/* Bulk Archive Success Banner */}
+      <AnimatePresence>
+         {archivedCount !== null && (
+           <motion.div 
+             initial={{ x: 100, opacity: 0 }}
+             animate={{ x: 0, opacity: 1 }}
+             exit={{ x: 100, opacity: 0 }}
+             className="fixed bottom-24 right-8 z-[200] px-4 py-3 bg-navy/90 border border-gold/30 rounded-lg shadow-2xl backdrop-blur-md flex items-center gap-3"
+           >
+             <CheckCircle2 className="w-4 h-4 text-gold" style={{ filter: 'drop-shadow(0 0 5x #C9A84C)' }} />
+             <div className="flex flex-col">
+               <span className="text-[8px] font-bold text-gold uppercase tracking-[0.2em] leading-none">Intelligence Archive</span>
+               <span className="text-[10px] text-white/95 mt-1 font-semibold">
+                 {archivedCount} contacts bulk-archived successfully.
+               </span>
+             </div>
+           </motion.div>
+         )}
+      </AnimatePresence>
 
       <ContactDetailsModal 
         isOpen={isDetailsOpen}
@@ -158,13 +289,24 @@ export default function ContactsPage({ contacts, onAddContact, onEditContact, on
   );
 }
 
-function ContactCard({ contact, onViewDetails, onEdit, onDelete, onInitiateCall }: { contact: Contact, onViewDetails: (c: Contact) => void, onEdit: () => void, onDelete: () => void, onInitiateCall: () => void }) {
+function ContactCard({ contact, isSelected, onToggleSelect, onViewDetails, onEdit, onDelete, onInitiateCall }: { contact: Contact, isSelected: boolean, onToggleSelect: () => void, onViewDetails: (c: Contact) => void, onEdit: () => void, onDelete: () => void, onInitiateCall: () => void }) {
   return (
     <motion.div 
       whileHover={{ y: -4 }}
-      className="bg-navy-mid/60 border border-gold/18 rounded-2xl overflow-hidden shadow-xl hover:border-gold/40 transition-all flex flex-col group"
+      className={`bg-navy-mid/60 border rounded-2xl overflow-hidden shadow-xl hover:border-gold/40 transition-all flex flex-col group relative ${isSelected ? 'border-gold shadow-[0_0_15px_rgba(201,168,76,0.15)] bg-gold/[0.02]' : 'border-gold/18'}`}
     >
-       <div className="p-6 pb-4 relative">
+       {/* Checkbox Trigger Top Left */}
+       <div 
+         onClick={(e) => { e.stopPropagation(); onToggleSelect(); }}
+         className="absolute top-5 left-5 z-20 cursor-pointer"
+         title="Select contact"
+       >
+          <div className={`w-4 h-4 rounded-md border flex items-center justify-center transition-all ${isSelected ? 'border-gold bg-gold text-navy' : 'border-white/20 bg-navy/80 hover:border-gold/50'}`}>
+             {isSelected && <div className="w-2 h-2 bg-navy rounded-sm" />}
+          </div>
+       </div>
+
+       <div className="p-6 pb-4 relative pl-12">
           <div className="absolute top-4 right-4 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
              <button 
                onClick={(e) => { e.stopPropagation(); onEdit(); }}

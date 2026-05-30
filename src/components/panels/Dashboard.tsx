@@ -1,16 +1,41 @@
-import { PanelId, Currency } from '../../types';
+import { PanelId, Currency, Lead, Listing } from '../../types';
 import { ReactNode } from 'react';
 import { motion } from 'motion/react';
 import { formatCurrency } from '../../lib/formatters';
+import AiMarketForecastChart from '../AiMarketForecastChart';
+import HottestLeadsWidget from '../HottestLeadsWidget';
+import PropertyHeatmap from '../PropertyHeatmap';
+import MlsNotificationSystem from '../MlsNotificationSystem';
 
-export default function Dashboard({ onNavigate, currency }: { onNavigate: (id: PanelId) => void, currency: Currency }) {
+interface DashboardProps {
+  onNavigate: (id: PanelId) => void;
+  currency: Currency;
+  leads?: Lead[];
+  listings?: Listing[];
+}
+
+export default function Dashboard({ onNavigate, currency, leads = [], listings = [] }: DashboardProps) {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard icon="💰" label="Pipeline Value" value={formatCurrency(4200000, currency)} change="↑ 18% this month" color="gold" />
-        <MetricCard icon="🎯" label="Active Leads" value="134" change="↑ 24 new this week" color="blue" />
+        <MetricCard icon="🎯" label="Active Leads" value={leads.length.toString()} change="↑ 24 new this week" color="blue" />
         <MetricCard icon="🤝" label="Closings (MTD)" value="7" change="↑ 2 vs last month" color="green" />
         <MetricCard icon="⏰" label="Follow-ups Due" value="28" change="12 overdue" color="red" />
+      </div>
+
+      {/* AI Market Forecast & Hot Lead Intel Hub */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <AiMarketForecastChart listings={listings} currency={currency} />
+        <HottestLeadsWidget leads={leads} onNavigate={onNavigate} />
+      </div>
+
+      {/* Property Heatmap & Automated MLS Matching matrix */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1.6fr_1fr] gap-6" id="heatmap-and-alarms">
+         <div className="bg-navy-mid/60 border border-gold/18 rounded-lg p-5">
+            <PropertyHeatmap leads={leads} listings={listings} currency={currency} />
+         </div>
+         <MlsNotificationSystem leads={leads} listings={listings} />
       </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-[1.6fr_1fr] gap-6">
